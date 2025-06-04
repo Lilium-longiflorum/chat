@@ -80,6 +80,23 @@ int main() {
     bind(server_fd, (struct sockaddr*)&address, sizeof(address));
     listen(server_fd, MAX_CLIENTS);
 
+    char hostname[256];
+    if (gethostname(hostname, sizeof(hostname)) == 0) {
+        struct hostent* host = gethostbyname(hostname);
+        if (host) {
+            printf("Server available at:\n");
+            for (int i = 0; host->h_addr_list[i] != NULL; i++) {
+                struct in_addr addr;
+                memcpy(&addr, host->h_addr_list[i], sizeof(struct in_addr));
+                printf("  %s:%d\n", inet_ntoa(addr), PORT);
+            }
+        } else {
+            perror("gethostbyname");
+        }
+    } else {
+        perror("gethostname");
+    }
+
     printf("server start...\n");
 
     while (1) {
