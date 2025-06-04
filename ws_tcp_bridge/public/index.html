@@ -5,26 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chat</title>
   <style>
+    :root {
+      --bg: #eef2f7;
+      --container-bg: white;
+      --chat-bg: #f9f9f9;
+      --text: #000;
+      --input-bg: white;
+    }
+
+    body.dark {
+      --bg: #0d0d12;
+      --container-bg: #1a1a26;
+      --chat-bg: #2a2a3d;
+      --text: #e0e0e0;
+      --input-bg: #202030;
+    }
+
+
     * {
       box-sizing: border-box;
     }
 
     body {
       font-family: 'Segoe UI', sans-serif;
-      background: #eef2f7;
+      background: var(--bg);
       margin: 0;
       padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
+      color: var(--text);
+      transition: background 0.3s ease, color 0.3s ease;
     }
 
     .chat-container {
       width: 100%;
       max-width: 600px;
       height: 80vh;
-      background: white;
+      background: var(--container-bg);
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       border-radius: 10px;
       display: flex;
@@ -36,7 +55,7 @@
       flex: 1;
       padding: 1rem;
       overflow-y: auto;
-      background: #f9f9f9;
+      background: var(--chat-bg);
       font-family: monospace;
       white-space: pre-wrap;
       line-height: 1.4;
@@ -53,6 +72,8 @@
       border: none;
       outline: none;
       font-size: 1rem;
+      background: var(--input-bg);
+      color: var(--text);
     }
 
     button {
@@ -69,40 +90,35 @@
       background: #4338ca;
     }
 
-    button:active {
-      transform: scale(0.98);
+    #theme-toggle {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 2px solid #4f46e5;
+      border-radius: 6px;
+      color: #4f46e5;
+      cursor: pointer;
+      font-size: 0.9rem;
     }
 
-    /* 모바일 대응: 화면이 640px 이하일 때 전체 화면 사용 */
     @media (max-width: 640px) {
       body {
         height: 100dvh;
       }
-
       .chat-container {
         width: 100%;
         height: 100dvh;
         border-radius: 0;
         box-shadow: none;
       }
-
-      #chat {
-        padding: 0.5rem;
-      }
-
-      #input {
-        padding: 0.5rem 0.75rem;
-        font-size: 1rem;
-      }
-
-      button {
-        padding: 0.5rem 1rem;
-        font-size: 1rem;
-      }
     }
   </style>
 </head>
 <body>
+  <button id="theme-toggle">Dark</button>
+
   <div class="chat-container">
     <div id="chat"></div>
     <div class="input-area">
@@ -144,6 +160,15 @@
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") send();
+    });
+
+    // Theme toggle
+    const themeBtn = document.getElementById("theme-toggle");
+    themeBtn.addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+      themeBtn.textContent = document.body.classList.contains("dark")
+        ? "light"
+        : "dark";
     });
   </script>
 </body>
