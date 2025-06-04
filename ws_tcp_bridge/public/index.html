@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #eef2f7;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 600px;
+      height: 80vh;
+      background: white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #chat {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background: #f9f9f9;
+      font-family: monospace;
+      white-space: pre-wrap;
+      line-height: 1.4;
+    }
+
+    .input-area {
+      display: flex;
+      border-top: 1px solid #ddd;
+    }
+
+    #input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: none;
+      outline: none;
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: #4338ca;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    /* 모바일 대응: 화면이 640px 이하일 때 전체 화면 사용 */
+    @media (max-width: 640px) {
+      body {
+        height: 100dvh;
+      }
+
+      .chat-container {
+        width: 100%;
+        height: 100dvh;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      #chat {
+        padding: 0.5rem;
+      }
+
+      #input {
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+      }
+
+      button {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div id="chat"></div>
+    <div class="input-area">
+      <input id="input" type="text" placeholder="Enter message..." />
+      <button onclick="send()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("input");
+
+    const ws = new WebSocket(`ws://${location.host}`);
+
+    ws.onopen = () => {
+      const name = prompt("Enter your nickname:")?.trim();
+      if (name) {
+        ws.send(name);
+      }
+    };
+
+    ws.onmessage = (e) => {
+      const lines = e.data.split(/\r?\n/);
+      for (const line of lines) {
+        if (line.trim() !== '') {
+          chat.textContent += line + '\n';
+        }
+      }
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    function send() {
+      const msg = input.value.trim();
+      if (msg) {
+        ws.send(msg + '\n');
+        input.value = "";
+      }
+    }
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") send();
+    });
+  </script>
+</body>
+</html>

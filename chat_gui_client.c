@@ -15,6 +15,24 @@ char server_ip[BUF_SIZE] = "127.0.0.1";
 int server_port = DEFAULT_PORT;
 
 WNDPROC oldInputProc;
+// ========================= UTF-8 출력 ============================
+void PrintUTF8ToEdit(HWND hwnd, const char* utf8str) {
+    wchar_t wbuf[BUF_SIZE * 2];
+    char ansi[BUF_SIZE * 2];
+
+    // UTF-8 → UTF-16
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8str, -1, wbuf, sizeof(wbuf)/sizeof(wchar_t));
+    if (wlen == 0) return;
+
+    // UTF-16 → ANSI (로컬 인코딩)
+    int alen = WideCharToMultiByte(CP_ACP, 0, wbuf, -1, ansi, sizeof(ansi), NULL, NULL);
+    if (alen == 0) return;
+
+    // 출력
+    SendMessage(hwnd, EM_SETSEL, -1, -1);
+    SendMessage(hwnd, EM_REPLACESEL, FALSE, (LPARAM)ansi);
+}
+
 
 // ======================= 서버 주소 입력 ===========================
 int PromptServerAddress(HINSTANCE hInstance) {
@@ -118,8 +136,9 @@ DWORD WINAPI ReceiveThread(LPVOID lpParam) {
 
     while ((bytes = recv(sock, buffer, BUF_SIZE - 1, 0)) > 0) {
         buffer[bytes] = '\0';
-        SendMessage(hwndOutput, EM_SETSEL, -1, -1);
-        SendMessage(hwndOutput, EM_REPLACESEL, FALSE, (LPARAM)buffer);
+        // SendMessage(hwndOutput, EM_SETSEL, -1, -1);
+        // SendMessage(hwndOutput, EM_REPLACESEL, FALSE, (LPARAM)buffer);
+        PrintUTF8ToEdit(hwndOutput, buffer);
     }
 
     MessageBox(NULL, "Disconnected from server", "Info", MB_OK);
@@ -129,12 +148,19 @@ DWORD WINAPI ReceiveThread(LPVOID lpParam) {
 
 // ======================= 서버로 메시지 전송 ===========================
 void SendMessageToServer() {
-    char buffer[BUF_SIZE];
-    GetWindowText(hwndInput, buffer, BUF_SIZE);
-    if (strlen(buffer) == 0) return;
+    wchar_t wbuf[BUF_SIZE];
+    char utf8buf[BUF_SIZE * 2];
 
-    strcat(buffer, "\n");
-    send(sock, buffer, strlen(buffer), 0);
+    GetWindowTextW(hwndInput, wbuf, BUF_SIZE);  // 유니코드로 가져옴
+
+    if (wcslen(wbuf) == 0) return;
+
+    int len = WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, utf8buf, sizeof(utf8buf), NULL, NULL);
+    if (len > 0) {
+        strcat(utf8buf, "\n");
+        send(sock, utf8buf, strlen(utf8buf), 0);
+    }
+
     SetWindowText(hwndInput, "");
 }
 
