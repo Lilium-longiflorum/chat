@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -20,6 +21,33 @@ typedef int socklen_t;
 #define BUF_SIZE 1024
 #define MAX_CLIENTS 10
 #define NAME_LEN 32
+
+int is_private_ip(struct in_addr addr) {
+    uint32_t ip = ntohl(addr.s_addr); // host byte order로 변환
+
+    if ((ip >> 24) == 127) return 1; // 127.0.0.0/8
+    if ((ip >> 24) == 10) return 1;  // 10.0.0.0/8
+    if ((ip >> 20) == (172 << 4 | 1)) return 1; // 172.16.0.0 ~ 172.31.255.255
+    if ((ip >> 16) == (192 << 8 | 168)) return 1; // 192.168.0.0/16
+    return 0;
+}
+
+int is_http_request(const char* buffer) {
+    // 요청의 첫 줄만 검사하는 게 아니라, 전체가 HTTP 요청처럼 생겼는지 체크
+    if (strstr(buffer, "HTTP/") != NULL &&
+        (strstr(buffer, "GET ") != NULL ||
+         strstr(buffer, "POST") != NULL ||
+         strstr(buffer, "HEAD") != NULL ||
+         strstr(buffer, "PUT") != NULL ||
+         strstr(buffer, "DELETE") != NULL ||
+         strstr(buffer, "OPTIONS") != NULL ||
+         strstr(buffer, "PATCH") != NULL)) {
+        return 1;
+    }
+
+    return 0;
+}
+
 
 void normalize_newlines(char* dest, const char* src) {
     while (*src) {
@@ -90,9 +118,11 @@ int main() {
             for (int i = 0; host->h_addr_list[i] != NULL; i++) {
                 struct in_addr addr;
                 memcpy(&addr, host->h_addr_list[i], sizeof(struct in_addr));
-                printf("  app: %s:%d\n", inet_ntoa(addr), PORT);
-                printf("  web: %s:%d\n", inet_ntoa(addr), WEB_PORT);
 
+                if (!is_private_ip(addr)) {
+                    printf("  app: %s:%d\n", inet_ntoa(addr), PORT);
+                    printf("  web: %s:%d\n", inet_ntoa(addr), WEB_PORT);
+                }
             }
         } else {
             perror("gethostbyname");
@@ -149,16 +179,37 @@ int main() {
                     nicknames[i][0] = '\0';
                 } else {
                     buffer[valread] = '\0';
+
+                    if (name_received[i]) {
+                        if (is_http_request(buffer)) {
+                            const char* reject_msg = "Invalid connection.\n";
+                            send(sd, reject_msg, strlen(reject_msg), 0);
+                            closesocket(sd);
+                            client_sockets[i] = 0;
+                            name_received[i] = 0;
+                            nicknames[i][0] = '\0';
+                            continue;
+                        }
+                    }
+
                     if (!name_received[i]) {
+                        if (is_http_request(buffer)) {
+                            const char* reject_msg = "Invalid connection.\n";
+                            send(sd, reject_msg, strlen(reject_msg), 0);
+                            closesocket(sd);
+                            client_sockets[i] = 0;
+                            continue;
+                        }
+
                         strncpy(nicknames[i], buffer, NAME_LEN - 1);
                         nicknames[i][NAME_LEN - 1] = '\0';
 
                         char* temp = nicknames[i];
                         int si = 0;
                         int sj = 0;
-                        for(; *(temp+si) != '\0'; si++){
-                            if(*(temp+si) != '\n'){
-                                nicknames[i][sj++] = *(temp+si);
+                        for (; temp[si] != '\0'; si++) {
+                            if (temp[si] != '\n' && temp[si] != '\r') {
+                                nicknames[i][sj++] = temp[si];
                             }
                         }
                         nicknames[i][sj] = '\0';
