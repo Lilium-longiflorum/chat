@@ -11,6 +11,8 @@
       --chat-bg: #f9f9f9;
       --text: #000;
       --input-bg: white;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
     }
 
     body.dark {
@@ -19,8 +21,9 @@
       --chat-bg: #2a2a3d;
       --text: #e0e0e0;
       --input-bg: #202030;
+      --accent: #a5b4fc;
+      --accent-hover: #818cf8;
     }
-
 
     * {
       box-sizing: border-box;
@@ -37,6 +40,38 @@
       height: 100vh;
       color: var(--text);
       transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    .top-bar {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .top-bar button {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 0.9rem;
+      background-color: white;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    body.dark .top-bar button {
+      background-color: transparent;
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .top-bar button:hover {
+      background-color: var(--accent-hover);
+      color: white;
+      border-color: var(--accent-hover);
     }
 
     .chat-container {
@@ -76,9 +111,9 @@
       color: var(--text);
     }
 
-    button {
+    .input-area button {
       padding: 0.75rem 1.5rem;
-      background: #4f46e5;
+      background: var(--accent);
       color: white;
       border: none;
       cursor: pointer;
@@ -86,30 +121,32 @@
       transition: background 0.2s ease;
     }
 
-    button:hover {
-      background: #4338ca;
-    }
-
-    #theme-toggle {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      padding: 0.5rem 1rem;
-      background: transparent;
-      border: 2px solid #4f46e5;
-      border-radius: 6px;
-      color: #4f46e5;
-      cursor: pointer;
-      font-size: 0.9rem;
+    .input-area button:hover {
+      background: var(--accent-hover);
     }
 
     @media (max-width: 640px) {
+      .top-bar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        left: 0;
+        width: 100%;
+        padding: 0.5rem 1rem;
+        justify-content: flex-end;
+        background: var(--container-bg);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        z-index: 10;
+      }
+
       body {
+        padding-top: 3.5rem; /* 버튼 높이만큼 여백 */
         height: 100dvh;
       }
+
       .chat-container {
         width: 100%;
-        height: 100dvh;
+        height: calc(100dvh - 3.5rem);
         border-radius: 0;
         box-shadow: none;
       }
@@ -117,7 +154,10 @@
   </style>
 </head>
 <body>
-  <button id="theme-toggle">Dark</button>
+  <div class="top-bar">
+    <button id="theme-toggle">Dark</button>
+    <button id="clear-chat">Clear</button>
+  </div>
 
   <div class="chat-container">
     <div id="chat"></div>
@@ -167,8 +207,13 @@
     themeBtn.addEventListener("click", () => {
       document.body.classList.toggle("dark");
       themeBtn.textContent = document.body.classList.contains("dark")
-        ? "light"
-        : "dark";
+        ? "Light"
+        : "Dark";
+    });
+
+    // Clear chat
+    document.getElementById("clear-chat").addEventListener("click", () => {
+      chat.textContent = "";
     });
   </script>
 </body>
