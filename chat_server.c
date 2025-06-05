@@ -16,6 +16,7 @@ typedef int socklen_t;
 #endif
 
 #define PORT 8080
+#define WEB_PORT 9000
 #define BUF_SIZE 1024
 #define MAX_CLIENTS 10
 #define NAME_LEN 32
@@ -89,7 +90,9 @@ int main() {
             for (int i = 0; host->h_addr_list[i] != NULL; i++) {
                 struct in_addr addr;
                 memcpy(&addr, host->h_addr_list[i], sizeof(struct in_addr));
-                printf("  %s:%d\n", inet_ntoa(addr), PORT);
+                printf("  app: %s:%d\n", inet_ntoa(addr), PORT);
+                printf("  web: %s:%d\n", inet_ntoa(addr), WEB_PORT);
+
             }
         } else {
             perror("gethostbyname");
@@ -169,7 +172,11 @@ int main() {
 
                     } else {
                         char msg_with_name[BUF_SIZE + NAME_LEN];
-                        snprintf(msg_with_name, sizeof(msg_with_name), "[%s]: %s", nicknames[i], buffer);
+                        if(buffer[strlen(buffer)-1] != '\n'){
+                            snprintf(msg_with_name, sizeof(msg_with_name), "[%s]: %s\n", nicknames[i], buffer);
+                        } else{
+                            snprintf(msg_with_name, sizeof(msg_with_name), "[%s]: %s", nicknames[i], buffer);
+                        }
                         broadcast_message_normalized(sd, msg_with_name, client_sockets, MAX_CLIENTS);
                     }
                 }
