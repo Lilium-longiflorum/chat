@@ -8,7 +8,7 @@
 * **client** – 콘솔 기반 클라이언트 (중단됨)
 * **gui\_client** – Windows API를 활용한 GUI 클라이언트
 * **ws\_bridge / bridge.js** – 웹소켓-소켓 브릿지 (Node.js)
-* **web\_client** – 웹 브라우저 기반 클라이언트 (GitHub Pages에 배포)
+* **web\_client** – 웹 브라우저 기반 클라이언트
 
 ## 빌드 방법
 
