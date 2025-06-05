@@ -47,7 +47,7 @@ node bridge.js
 3. 원하는 클라이언트 실행
 
    * `gui_client.exe`
-   * 웹 브라우저에서 GitHub Pages 접속
+   * 웹 브라우저에서 주소와 포트 입력
 
 ## 클라이언트 목록
 
