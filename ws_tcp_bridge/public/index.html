@@ -134,7 +134,7 @@
     const ws = new WebSocket(`ws://${location.host}`);
 
     ws.onopen = () => {
-      const name = prompt("Enter your nickname:")?.trim();
+      const name = prompt("Enter your nickname")?.trim();
       if (name) {
         ws.send(name);
       }

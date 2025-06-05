@@ -152,6 +152,17 @@ int main() {
                     if (!name_received[i]) {
                         strncpy(nicknames[i], buffer, NAME_LEN - 1);
                         nicknames[i][NAME_LEN - 1] = '\0';
+
+                        char* temp = nicknames[i];
+                        int si = 0;
+                        int sj = 0;
+                        for(; *(temp+si) != '\0'; si++){
+                            if(*(temp+si) != '\n'){
+                                nicknames[i][sj++] = *(temp+si);
+                            }
+                        }
+                        nicknames[i][sj] = '\0';
+
                         name_received[i] = 1;
                         printf("client(%d) name: %s\n", sd, nicknames[i]);
 
