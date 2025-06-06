@@ -4,9 +4,51 @@ const path = require('path');
 const WebSocket = require('ws');
 const net = require('net');
 
-const TCP_HOST = '127.0.0.1';
-const TCP_PORT = 8080;
-const PORT = 9000;
+const loadConfig = () => {
+  const configPath = path.resolve(__dirname, '..', 'config.txt');
+  let config = {
+    tcp_host: '127.0.0.1',
+    tcp_port: 8080,
+    web_port: 9000,
+  };
+
+  try {
+    const lines = fs.readFileSync(configPath, 'utf-8')
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('#'));
+
+    lines.forEach((line, index) => {
+      console.log(`[${index}] Line: "${line}"`);
+      const match = line.match(/^([^:]+):\s*(.*?)\s*$/);
+      if (match) {
+        const key = match[1].trim();
+        const value = match[2].trim();
+        if (key === 'tcp_host') config.tcp_host = value;
+        else if (key === 'port') config.tcp_port = parseInt(value, 10);
+        else if (key === 'web_port') config.web_port = parseInt(value, 10);
+        else console.log(`Unknown config key: ${key} (ignored)`);
+      } else {
+        console.log(`No match for line: "${line}"`);
+      }
+    });
+  } catch (err) {
+    console.log('No config.txt found, using defaults.');
+  }
+
+  console.log('Loaded config:', config);
+  return config;
+};
+
+
+// load config
+const config = loadConfig();
+const { tcp_host: TCP_HOST, tcp_port: TCP_PORT, web_port: PORT } = config;
+
+console.log(`Using config:
+  TCP_HOST: ${TCP_HOST}
+  TCP_PORT: ${TCP_PORT}
+  WEB_PORT: ${PORT}`);
 
 const mimeTypes = {
   '.html': 'text/html; charset=UTF-8',

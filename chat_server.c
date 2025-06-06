@@ -16,24 +16,25 @@ typedef int socklen_t;
 #define closesocket close
 #endif
 
-#define PORT 8080
-#define WEB_PORT 9000
+#define DEFAULT_PORT 8080
+#define DEFAULT_WEB_PORT 9000
+#define DEFAULT_MAX_CLIENTS 10
+#define MAX_CLIENTS 100
 #define BUF_SIZE 1024
-#define MAX_CLIENTS 10
 #define NAME_LEN 32
+#define CONFIG_FILE "config.txt"
 
 int is_private_ip(struct in_addr addr) {
-    uint32_t ip = ntohl(addr.s_addr); // host byte order로 변환
+    uint32_t ip = ntohl(addr.s_addr);
 
-    if ((ip >> 24) == 127) return 1; // 127.0.0.0/8
-    if ((ip >> 24) == 10) return 1;  // 10.0.0.0/8
-    if ((ip >> 20) == (172 << 4 | 1)) return 1; // 172.16.0.0 ~ 172.31.255.255
-    if ((ip >> 16) == (192 << 8 | 168)) return 1; // 192.168.0.0/16
+    if ((ip >> 24) == 127) return 1;
+    if ((ip >> 24) == 10) return 1;
+    if ((ip >> 20) == (172 << 4 | 1)) return 1;
+    if ((ip >> 16) == (192 << 8 | 168)) return 1;
     return 0;
 }
 
 int is_http_request(const char* buffer) {
-    // 요청의 첫 줄만 검사하는 게 아니라, 전체가 HTTP 요청처럼 생겼는지 체크
     if (strstr(buffer, "HTTP/") != NULL &&
         (strstr(buffer, "GET ") != NULL ||
          strstr(buffer, "POST") != NULL ||
@@ -44,10 +45,8 @@ int is_http_request(const char* buffer) {
          strstr(buffer, "PATCH") != NULL)) {
         return 1;
     }
-
     return 0;
 }
-
 
 void normalize_newlines(char* dest, const char* src) {
     while (*src) {
@@ -89,11 +88,56 @@ void send_normalized(int client_fd, const char* raw_message) {
     send(client_fd, normalized, strlen(normalized), 0);
 }
 
+void load_config(int* port, int* web_port, int* max_clients) {
+    FILE* file = fopen(CONFIG_FILE, "r");
+    if (!file) {
+        printf("No config file found, using defaults.\n");
+        return;
+    }
+
+    char line[256];
+    while (fgets(line, sizeof(line), file)) {
+        char key[128];
+        char value[128];
+
+        if (sscanf(line, "%127[^:]: %127[^\n]", key, value) == 2) {
+            char* k = key;
+            while (*k == ' ' || *k == '\t') k++;
+            char* v = value;
+            while (*v == ' ' || *v == '\t') v++;
+
+            if (strcmp(k, "port") == 0) {
+                *port = atoi(v);
+                printf("Config: port = %d\n", *port);
+            } else if (strcmp(k, "web_port") == 0) {
+                *web_port = atoi(v);
+                printf("Config: web_port = %d\n", *web_port);
+            } else if (strcmp(k, "max_clients") == 0) {
+                *max_clients = atoi(v);
+                if (*max_clients > MAX_CLIENTS) {
+                    *max_clients = MAX_CLIENTS;
+                }
+                printf("Config: max_clients = %d\n", *max_clients);
+            } else {
+                printf("Unknown config key: %s (ignored)\n", k);
+            }
+        }
+    }
+
+    fclose(file);
+}
+
 int main() {
 #ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
 #endif
+
+    int port = DEFAULT_PORT;
+    int web_port = DEFAULT_WEB_PORT;
+    int max_clients = DEFAULT_MAX_CLIENTS;
+
+    load_config(&port, &web_port, &max_clients);
 
     int server_fd, client_fd, max_fd, activity, i;
     int client_sockets[MAX_CLIENTS] = {0};
@@ -106,9 +150,9 @@ int main() {
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    address.sin_port = htons(port);
     bind(server_fd, (struct sockaddr*)&address, sizeof(address));
-    listen(server_fd, MAX_CLIENTS);
+    listen(server_fd, max_clients);
 
     char hostname[256];
     if (gethostname(hostname, sizeof(hostname)) == 0) {
@@ -120,8 +164,8 @@ int main() {
                 memcpy(&addr, host->h_addr_list[i], sizeof(struct in_addr));
 
                 if (!is_private_ip(addr)) {
-                    printf("  app: %s:%d\n", inet_ntoa(addr), PORT);
-                    printf("  web: %s:%d\n", inet_ntoa(addr), WEB_PORT);
+                    printf("  app: %s:%d\n", inet_ntoa(addr), port);
+                    printf("  web: %s:%d\n", inet_ntoa(addr), web_port);
                 }
             }
         } else {
@@ -138,7 +182,7 @@ int main() {
         FD_SET(server_fd, &readfds);
         max_fd = server_fd;
 
-        for (i = 0; i < MAX_CLIENTS; i++) {
+        for (i = 0; i < max_clients; i++) {
             if (client_sockets[i] > 0) {
                 FD_SET(client_sockets[i], &readfds);
                 if (client_sockets[i] > max_fd)
@@ -151,17 +195,26 @@ int main() {
         if (FD_ISSET(server_fd, &readfds)) {
             socklen_t addrlen = sizeof(address);
             client_fd = accept(server_fd, (struct sockaddr*)&address, &addrlen);
-            for (i = 0; i < MAX_CLIENTS; i++) {
+            int found_slot = 0;
+            for (i = 0; i < max_clients; i++) {
                 if (client_sockets[i] == 0) {
                     client_sockets[i] = client_fd;
                     name_received[i] = 0;
                     printf("new client (socket %d)\n", client_fd);
+                    found_slot = 1;
                     break;
                 }
             }
+
+            if (!found_slot) {
+                const char* full_msg = "Server full. Connection rejected.\n";
+                send(client_fd, full_msg, strlen(full_msg), 0);
+                closesocket(client_fd);
+                printf("Connection rejected (server full).\n");
+            }
         }
 
-        for (i = 0; i < MAX_CLIENTS; i++) {
+        for (i = 0; i < max_clients; i++) {
             int sd = client_sockets[i];
             if (sd > 0 && FD_ISSET(sd, &readfds)) {
                 int valread = recv(sd, buffer, BUF_SIZE - 1, 0);
@@ -169,7 +222,7 @@ int main() {
                     if (name_received[i]) {
                         char leave_msg[BUF_SIZE + NAME_LEN];
                         snprintf(leave_msg, sizeof(leave_msg), "[System]: %s left the chat\n", nicknames[i]);
-                        broadcast_message_normalized(sd, leave_msg, client_sockets, MAX_CLIENTS);
+                        broadcast_message_normalized(sd, leave_msg, client_sockets, max_clients);
                     }
 
                     printf("client exit(socket %d)\n", sd);
@@ -205,8 +258,7 @@ int main() {
                         nicknames[i][NAME_LEN - 1] = '\0';
 
                         char* temp = nicknames[i];
-                        int si = 0;
-                        int sj = 0;
+                        int si = 0, sj = 0;
                         for (; temp[si] != '\0'; si++) {
                             if (temp[si] != '\n' && temp[si] != '\r') {
                                 nicknames[i][sj++] = temp[si];
@@ -218,7 +270,7 @@ int main() {
                         printf("client(%d) name: %s\n", sd, nicknames[i]);
 
                         int count = 0;
-                        for (int j = 0; j < MAX_CLIENTS; j++) {
+                        for (int j = 0; j < max_clients; j++) {
                             if (client_sockets[j] != 0 && name_received[j]) {
                                 count++;
                             }
@@ -230,16 +282,16 @@ int main() {
 
                         char join_msg[BUF_SIZE + NAME_LEN];
                         snprintf(join_msg, sizeof(join_msg), "[System]: %s joined the chat\n", nicknames[i]);
-                        broadcast_message_normalized(sd, join_msg, client_sockets, MAX_CLIENTS);
+                        broadcast_message_normalized(sd, join_msg, client_sockets, max_clients);
 
                     } else {
                         char msg_with_name[BUF_SIZE + NAME_LEN];
-                        if(buffer[strlen(buffer)-1] != '\n'){
+                        if (buffer[strlen(buffer) - 1] != '\n') {
                             snprintf(msg_with_name, sizeof(msg_with_name), "[%s]: %s\n", nicknames[i], buffer);
-                        } else{
+                        } else {
                             snprintf(msg_with_name, sizeof(msg_with_name), "[%s]: %s", nicknames[i], buffer);
                         }
-                        broadcast_message_normalized(sd, msg_with_name, client_sockets, MAX_CLIENTS);
+                        broadcast_message_normalized(sd, msg_with_name, client_sockets, max_clients);
                     }
                 }
             }
