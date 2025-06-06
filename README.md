@@ -48,7 +48,7 @@ node bridge.js
 node run_all.js
 ```
 
-### 또는 개별 실행
+### 개별 실행
 
 1. 서버 실행
 2. 필요 시 `bridge.js` 실행 (웹 클라이언트 사용 시)
